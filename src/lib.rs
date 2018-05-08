@@ -1,3 +1,11 @@
+//! Rust support for [Redis Streams](https://github.com/redis/redis-rcp/blob/master/RCP11.md)
+//! 
+//! [Streams: a new general purpose data structure in Redis.](http://antirez.com/news/114)
+//! [An update on Redis Streams development](http://antirez.com/news/116)
+//! 
+//! To use Redis Streams, you must have a version of Redis installed with stream support enabled. It is planned
+//! for streams to appear in Redis 5.0.
+
 extern crate redis;
 extern crate itertools;
 
