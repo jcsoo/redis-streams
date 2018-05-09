@@ -12,9 +12,40 @@ extern crate itertools;
 use redis::*;
 use std::slice;
 
+pub fn xadd(stream: &str) -> Xadd {
+    let mut cmd = cmd("XADD");
+    cmd.arg(stream).arg("*");
+    Xadd(cmd)
+}
+
+pub fn xadd_maxlen(stream: &str, max_len: usize) -> Xadd {
+    let mut cmd = cmd("XADD");
+    cmd.arg(stream).arg("MAXLEN").arg(max_len).arg("*");
+    Xadd(cmd)
+}
+
+pub struct Xadd(Cmd);
+
+impl Xadd {
+    pub fn entry<K: ToRedisArgs, V: ToRedisArgs>(mut self, key: K, val: V) -> Self {
+        self.0.arg(key).arg(val);
+        self
+    }
+
+    pub fn query<RV: FromRedisValue>(&self, con: &Connection) -> RedisResult<RV> {
+        self.0.query(con)
+    }
+
+    pub fn execute(&self, con: &Connection) {
+        let _ : () = self.query(con).unwrap();
+    }
+}
+
 pub trait RedisStream {
     fn xadd<S: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, key: K, value: V) -> RedisResult<RV>;
+    fn xadd_maxlen<S: ToRedisArgs, L: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L, key: K, value: V) -> RedisResult<RV>;
     fn xadd_multiple<S: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, entries: &[(K, V)]) -> RedisResult<RV>;
+    fn xadd_maxlen_multiple<S: ToRedisArgs, L: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L, entries: &[(K, V)]) -> RedisResult<RV>;
 
     fn xlen<S: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S) -> RedisResult<RV>;
 
@@ -38,8 +69,17 @@ impl RedisStream for redis::Connection {
     fn xadd<S: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, key: K, value: V) -> RedisResult<RV> {
         cmd("XADD").arg(stream).arg("*").arg(key).arg(value).query(self)
     }
+
+    fn xadd_maxlen<S: ToRedisArgs, L: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L, key: K, value: V) -> RedisResult<RV> {
+        cmd("XADD").arg(stream).arg("MAXLEN").arg(max_len).arg("*").arg(key).arg(value).query(self)
+    }
+
     fn xadd_multiple<S: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, entries: &[(K, V)]) -> RedisResult<RV> {
         cmd("XADD").arg(stream).arg("*").arg(entries).query(self)
+    }
+
+    fn xadd_maxlen_multiple<S: ToRedisArgs, L: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L, entries: &[(K, V)]) -> RedisResult<RV> {
+        cmd("XADD").arg(stream).arg("MAXLEN").arg(max_len).arg("*").arg(entries).query(self)
     }
 
     fn xlen<S: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S) -> RedisResult<RV> {
@@ -53,7 +93,6 @@ impl RedisStream for redis::Connection {
     fn xrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV> {
         cmd("XRANGE").arg(stream).arg(start).arg(stop).arg("COUNT").arg(count).query(self)
     }
-
 
     fn xread<S: ToRedisArgs, I: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, id: I) -> RedisResult<RV> {
         cmd("XREAD").arg("STREAMS").arg(stream).arg(id).query(self)
