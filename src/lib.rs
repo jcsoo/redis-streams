@@ -220,6 +220,13 @@ impl Entry {
     }
 }
 
+
+pub trait HandleEntry {
+    type Error;
+    fn handle_entry(&mut self, stream: &str, entry: &Entry) -> Result<(), Self::Error>;
+    fn handle_timeout(&mut self, _duration: u32) -> Result<(), Self::Error> { Ok(()) }
+}
+
 // pub struct KeyValue {
 //     key: Value,
 //     value: Value,
