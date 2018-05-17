@@ -52,6 +52,9 @@ pub trait RedisStream {
     fn xrange<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B) -> RedisResult<RV>;
     fn xrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV>;
 
+    fn xrevrange<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B) -> RedisResult<RV>;
+    fn xrevrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV>;
+
     fn xread<S: ToRedisArgs, I: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, id: I) -> RedisResult<RV>;
     fn xread_multiple<RV: FromRedisValue>(&mut self, entries: &[(String, String)]) -> RedisResult<RV>;
 
@@ -93,6 +96,14 @@ impl RedisStream for redis::Connection {
     fn xrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV> {
         cmd("XRANGE").arg(stream).arg(start).arg(stop).arg("COUNT").arg(count).query(self)
     }
+
+    fn xrevrange<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B) -> RedisResult<RV> {
+        cmd("XREVRANGE").arg(stream).arg(start).arg(stop).query(self)
+    }
+
+    fn xrevrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV> {
+        cmd("XREVRANGE").arg(stream).arg(start).arg(stop).arg("COUNT").arg(count).query(self)
+    }    
 
     fn xread<S: ToRedisArgs, I: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, id: I) -> RedisResult<RV> {
         cmd("XREAD").arg("STREAMS").arg(stream).arg(id).query(self)
