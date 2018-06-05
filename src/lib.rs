@@ -47,7 +47,11 @@ pub trait RedisStream {
     fn xadd_multiple<S: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, entries: &[(K, V)]) -> RedisResult<RV>;
     fn xadd_maxlen_multiple<S: ToRedisArgs, L: ToRedisArgs, K: ToRedisArgs, V: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L, entries: &[(K, V)]) -> RedisResult<RV>;
 
+    fn xdel<S: ToRedisArgs, I: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, id: I) -> RedisResult<RV>;
     fn xlen<S: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S) -> RedisResult<RV>;
+
+    fn xtrim_maxlen<S: ToRedisArgs, L: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L) -> RedisResult<RV>;
+    fn xtrim_approx_maxlen<S: ToRedisArgs, L: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L) -> RedisResult<RV>;
 
     fn xrange<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B) -> RedisResult<RV>;
     fn xrange_count<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, C: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B, count: C) -> RedisResult<RV>;
@@ -82,10 +86,20 @@ impl RedisStream for redis::Connection {
         cmd("XADD").arg(stream).arg("MAXLEN").arg(max_len).arg("*").arg(entries).query(self)
     }
 
+    fn xdel<S: ToRedisArgs, I: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, id: I) -> RedisResult<RV> {
+        cmd("XDEL").arg(stream).arg(id).query(self)
+    }
+
     fn xlen<S: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S) -> RedisResult<RV> {
         cmd("XLEN").arg(stream).query(self)
     }
 
+    fn xtrim_maxlen<S: ToRedisArgs, L: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L) -> RedisResult<RV> {
+        cmd("XTRIM").arg(stream).arg("MAXLEN").arg(max_len).query(self)
+    }    
+    fn xtrim_approx_maxlen<S: ToRedisArgs, L: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, max_len: L) -> RedisResult<RV> {
+        cmd("XTRIM").arg(stream).arg("MAXLEN").arg("~").arg(max_len).query(self)
+    }    
     fn xrange<S: ToRedisArgs, A: ToRedisArgs, B: ToRedisArgs, RV: FromRedisValue>(&mut self, stream: S, start: A, stop: B) -> RedisResult<RV> {
         cmd("XRANGE").arg(stream).arg(start).arg(stop).query(self)
     }
@@ -320,4 +334,51 @@ mod tests {
 
         let _: () = con.del("mystream").unwrap();
     }
+
+    #[test]
+    fn test_xtrim() {
+        let client = redis::Client::open("redis://127.0.0.1/").unwrap();
+        let mut con = client.get_connection().unwrap();
+
+        let stream_id = "_test_xtrim";
+
+        let _: () = con.del(stream_id).unwrap();
+        let _: () = con.xadd(stream_id, "abc", 123).unwrap();
+        let _: () = con.xadd(stream_id, "abc", 456).unwrap();
+        let n: usize = con.xlen(stream_id).unwrap();
+        assert_eq!(n, 2);
+        let _: () = con.xtrim_maxlen(stream_id, 1).unwrap();
+        let n: usize = con.xlen(stream_id).unwrap();
+        assert_eq!(n, 1);
+        let _: () = con.del(stream_id).unwrap();
+    }
+
+    #[test]
+    fn test_xdel() {
+        let client = redis::Client::open("redis://127.0.0.1/").unwrap();
+        let mut con = client.get_connection().unwrap();
+
+        let stream_id = "_test_xdel";
+
+        let _: () = con.del(stream_id).unwrap();
+        let a: String = con.xadd(stream_id, "abc", 123).unwrap();
+        let b: String = con.xadd(stream_id, "abc", 456).unwrap();
+        let n: usize = con.xlen(stream_id).unwrap();
+        assert_eq!(n, 2);
+        let x: usize = con.xdel(stream_id, a).unwrap();
+        assert_eq!(x, 1);
+        let x: usize = con.xdel(stream_id, b).unwrap();
+        assert_eq!(x, 1);
+
+        // NOTE: xlen does not currently return adjusted count
+        // let n: usize = con.xlen(stream_id).unwrap();
+        // assert_eq!(n, 0);
+
+        let entries: Vec<Entry> = con.xrange(stream_id, "-", "+").unwrap();
+        assert_eq!(entries.len(), 0);
+
+        let _: () = con.del(stream_id).unwrap();
+        
+    }
+
 }
