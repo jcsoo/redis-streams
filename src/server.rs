@@ -10,6 +10,12 @@ pub struct StreamServer {
 }
 
 impl StreamServer {
+    pub fn connect(url: &str) -> Result<Self, RedisError> {
+        let client = Client::open(url)?;
+        let conn = client.get_connection()?;
+        Ok(Self::new(conn))
+    }
+
     pub fn new(conn: Connection) -> Self {
         let streams = HashMap::new();
         StreamServer { conn, streams }
@@ -122,7 +128,7 @@ mod tests {
         let con = client.get_connection().unwrap();        
         let _: () = con.del("_test_abc").unwrap();  
         {
-            let mut s = StreamServer::new(con);
+            let mut s = StreamServer::connect("redis://127.0.0.1/").unwrap();
             let now = s.now();
             println!("now: {}", now);
             s.register("_test_abc", &now);
