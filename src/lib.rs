@@ -9,6 +9,8 @@
 extern crate redis;
 extern crate itertools;
 
+pub mod server;
+
 use redis::*;
 use std::slice;
 
