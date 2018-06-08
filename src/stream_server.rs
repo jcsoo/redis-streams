@@ -1,4 +1,5 @@
 use super::redis::*;
+use super::RedisStream;
 use super::{Stream, Entry};
 
 use std::vec;
@@ -21,9 +22,14 @@ impl StreamServer {
         StreamServer { conn, streams }
     }
 
-    pub fn xadd(&mut self, stream_id: &str, key: &str, value: &str) -> Result<String, RedisError> {
-        cmd("XADD").arg(stream_id).arg("*").arg(key).arg(value).query(&mut self.conn)
+    pub fn xadd(&mut self, stream_id: &str, key: &[u8], value: &[u8]) -> Result<String, RedisError> {
+        self.conn.xadd(stream_id, key, value)
     }
+
+    pub fn xadd_maxlen(&mut self, stream_id: &str, max_len: usize, key: &[u8], value: &[u8]) -> Result<String, RedisError> {
+        self.conn.xadd_maxlen(stream_id, max_len, key, value)
+    }
+
 
     pub fn register(&mut self, stream_id: &str, entry_id: &str) -> Option<String> {
         self.streams.insert(String::from(stream_id), String::from(entry_id))
@@ -132,7 +138,7 @@ mod tests {
             let now = s.now();
             println!("now: {}", now);
             s.register("_test_abc", &now);
-            let v = s.xadd("_test_abc", "key", "value").unwrap();
+            let v = s.xadd("_test_abc", b"key", b"value").unwrap();
             println!("v: {}", v);
 
             for (stream_id, entries) in s.xread(0).unwrap() {
@@ -148,7 +154,7 @@ mod tests {
 
             println!("---");
 
-            let v = s.xadd("_test_abc", "key", "value2").unwrap();
+            let v = s.xadd("_test_abc", b"key", b"value2").unwrap();
             println!("v: {}", v);
 
             for (stream_id, entries) in s.xread(0).unwrap() {

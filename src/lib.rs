@@ -9,10 +9,14 @@
 extern crate redis;
 extern crate itertools;
 
-pub mod server;
+pub mod stream_server;
+pub use stream_server::*;
 
 use redis::*;
+pub use redis::RedisError;
 use std::slice;
+
+
 
 pub fn xadd(stream: &str) -> Xadd {
     let mut cmd = cmd("XADD");
