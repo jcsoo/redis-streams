@@ -12,6 +12,8 @@ extern crate itertools;
 pub mod stream_server;
 pub use stream_server::*;
 
+pub mod stream;
+
 use redis::*;
 pub use redis::RedisError;
 use std::slice;
